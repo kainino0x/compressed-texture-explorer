@@ -12,7 +12,7 @@
     "export": "npm run build"
   },
   "dependencies": {
-    "dat.gui": "^0.7.9",
+    "tweakpane": "^4.0.5",
     "wgpu-matrix": "^3.2.0"
   },
   "devDependencies": {
@@ -21,6 +21,7 @@
     "@rollup/plugin-node-resolve": "^15.3.0",
     "@rollup/plugin-typescript": "^11.1.6",
     "@tsconfig/recommended": "^1.0.7",
+    "@tweakpane/core": "^2.0.5",
     "@types/dat.gui": "^0.7.13",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@webgpu/types": "^0.1.49",

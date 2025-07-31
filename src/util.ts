@@ -1,7 +1,5 @@
 /** Shows an error dialog if getting an adapter wasn't successful. */
-export function quitIfAdapterNotAvailable(
-  adapter: GPUAdapter | null
-): asserts adapter {
+export function quitIfAdapterNotAvailable(adapter: GPUAdapter | null): asserts adapter {
   if (!('gpu' in navigator)) {
     fail('navigator.gpu is not defined - WebGPU not available in this browser');
   }

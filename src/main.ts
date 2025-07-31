@@ -1,10 +1,8 @@
-import { GUI } from 'dat.gui';
+import { FolderApi, Pane } from 'tweakpane';
 import visualizeTextureWGSL from './visualizeTexture.wgsl';
 import { quitIfWebGPUNotAvailable } from './util';
 
-const outBlockBits = document.getElementById(
-  'outBlockBits'
-) as HTMLTextAreaElement;
+const outBlockBits = document.getElementById('outBlockBits') as HTMLTextAreaElement;
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const device = await (async () => {
@@ -67,7 +65,7 @@ const kCompressedFormatInfo = {
     blockByteSize: 4,
     encode({ rgba8unorm: p }: typeof parameters) {
       return `\
-${toBits(p.r, 8)} ${toBits(p.g, 8)} ${toBits(p.b, 8)} ${toBits(p.a, 8)}`;
+${uintToBits(p.r, 8)} ${uintToBits(p.g, 8)} ${uintToBits(p.b, 8)} ${uintToBits(p.a, 8)}`;
     },
   },
   'etc2-rgb8unorm': {
@@ -79,10 +77,10 @@ ${toBits(p.r, 8)} ${toBits(p.g, 8)} ${toBits(p.b, 8)} ${toBits(p.a, 8)}`;
           const kPixelIndexValues = [3, 2, 0, 1];
           const ponmlkjihgfedcba = p.abcdefghijklmnop.toReversed();
           return `\
-${toBits(p.R1, 4)} ${toBits(p.R2, 4)}
-${toBits(p.G1, 4)} ${toBits(p.G2, 4)}
-${toBits(p.B1, 4)} ${toBits(p.B2, 4)}
- ${toBits(p.table1, 3)}  ${toBits(p.table2, 3)} 0 ${toBit(p.flipBit)}
+${uintToBits(p.R1, 4)} ${uintToBits(p.R2, 4)}
+${uintToBits(p.G1, 4)} ${uintToBits(p.G2, 4)}
+${uintToBits(p.B1, 4)} ${uintToBits(p.B2, 4)}
+ ${uintToBits(p.table1, 3)}  ${uintToBits(p.table2, 3)} 0 ${toBit(p.flipBit)}
 ${ponmlkjihgfedcba.map((v) => (kPixelIndexValues[v] >>> 1) & 1).join(' ')}
 ${ponmlkjihgfedcba.map((v) => (kPixelIndexValues[v] >>> 0) & 1).join(' ')}`;
       }
@@ -106,7 +104,6 @@ ${ponmlkjihgfedcba.map((v) => (kPixelIndexValues[v] >>> 0) & 1).join(' ')}`;
     },
   },
 } as const;
-const kDefaultFormat: GPUTextureFormat = 'etc2-rgb8unorm';
 
 const kLargestBlockByteSize = Math.max(
   ...Object.values(kCompressedFormatInfo).map((info) => info.blockByteSize)
@@ -129,60 +126,67 @@ const parameters = {
   rgba8unorm: { r: 0, g: 100, b: 200, a: 127 },
 };
 const settings = {
-  format: kDefaultFormat,
+  format: 'etc2-rgb8unorm' as keyof typeof kCompressedFormatInfo,
 };
 
-const gui = new GUI();
-gui
-  .add(settings, 'format', Object.keys(kCompressedFormatInfo))
-  .onChange(update);
+const pane = new Pane();
+pane.on('change', update);
+pane
+  .addBinding(settings, 'format', {
+    options: Object.fromEntries(Object.keys(kCompressedFormatInfo).map((k) => [k, k])),
+  })
+  .on('change', updateFolders);
+
+const formatFolders: FolderApi[] = [];
 {
-  const folder = gui.addFolder('rgba8unorm');
-  folder.open();
-  folder.add(parameters.rgba8unorm, 'r', 0, 255, 1).onChange(update);
-  folder.add(parameters.rgba8unorm, 'g', 0, 255, 1).onChange(update);
-  folder.add(parameters.rgba8unorm, 'b', 0, 255, 1).onChange(update);
-  folder.add(parameters.rgba8unorm, 'a', 0, 255, 1).onChange(update);
+  const folder = pane.addFolder({ title: 'rgba8unorm' });
+  formatFolders.push(folder);
+  // TODO: would be nice to use a color picker here, but the 'format' option doesn't work
+  folder.addBinding(parameters.rgba8unorm, 'r', { min: 0, max: 255, step: 1 });
+  folder.addBinding(parameters.rgba8unorm, 'g', { min: 0, max: 255, step: 1 });
+  folder.addBinding(parameters.rgba8unorm, 'b', { min: 0, max: 255, step: 1 });
+  folder.addBinding(parameters.rgba8unorm, 'a', { min: 0, max: 255, step: 1 });
 }
 {
-  const folder = gui.addFolder('etc2-rgb8unorm');
-  folder.open();
-  folder
-    .add(parameters['etc2-rgb8unorm'], 'mode', [
-      'individual',
-      'differential',
-      'T',
-      'H',
-      'planar',
-    ])
-    .onChange(update);
-  folder.add(parameters['etc2-rgb8unorm'], 'flipBit').onChange(update);
-  folder.add(parameters['etc2-rgb8unorm'], 'R1', 0, 15, 1).onChange(update);
-  folder.add(parameters['etc2-rgb8unorm'], 'G1', 0, 15, 1).onChange(update);
-  folder.add(parameters['etc2-rgb8unorm'], 'B1', 0, 15, 1).onChange(update);
-  folder.add(parameters['etc2-rgb8unorm'], 'table1', 0, 7, 1).onChange(update);
-  folder.add(parameters['etc2-rgb8unorm'], 'R2', 0, 15, 1).onChange(update);
-  folder.add(parameters['etc2-rgb8unorm'], 'G2', 0, 15, 1).onChange(update);
-  folder.add(parameters['etc2-rgb8unorm'], 'B2', 0, 15, 1).onChange(update);
-  folder.add(parameters['etc2-rgb8unorm'], 'table2', 0, 7, 1).onChange(update);
+  const folder = pane.addFolder({ title: 'etc2-rgb8unorm' });
+  formatFolders.push(folder);
+  folder.addBinding(parameters['etc2-rgb8unorm'], 'R1', { min: 0, max: 15, step: 1 });
+  folder.addBinding(parameters['etc2-rgb8unorm'], 'G1', { min: 0, max: 15, step: 1 });
+  folder.addBinding(parameters['etc2-rgb8unorm'], 'B1', { min: 0, max: 15, step: 1 });
+  folder.addBinding(parameters['etc2-rgb8unorm'], 'table1', { min: 0, max: 7, step: 1 });
+  folder.addBinding(parameters['etc2-rgb8unorm'], 'R2', { min: 0, max: 15, step: 1 });
+  folder.addBinding(parameters['etc2-rgb8unorm'], 'G2', { min: 0, max: 15, step: 1 });
+  folder.addBinding(parameters['etc2-rgb8unorm'], 'B2', { min: 0, max: 15, step: 1 });
+  folder.addBinding(parameters['etc2-rgb8unorm'], 'table2', { min: 0, max: 7, step: 1 });
   for (let i = 0; i < 16; ++i) {
-    // TODO: ideally these would show as -large, -small, +small, +large, or
-    // even better using the lookup values from the actual table
-    folder
-      .add(parameters['etc2-rgb8unorm'].abcdefghijklmnop, i, 0, 3, 1)
-      .name(String.fromCharCode('a'.charCodeAt(0) + i) + ' modifier')
-      .onChange(update);
+    folder.addBinding(parameters['etc2-rgb8unorm'].abcdefghijklmnop, i, {
+      min: 0,
+      max: 3,
+      step: 1,
+      format: (v) => ['-large', '-small', '+small', '+large'][v],
+      label: String.fromCharCode('a'.charCodeAt(0) + i) + ' mod',
+    });
   }
 }
+
+function updateFolders() {
+  for (const folder of formatFolders) {
+    folder.hidden = folder.title !== settings.format;
+  }
+}
+updateFolders();
 
 let state: {
   texture: GPUTexture;
   bindGroup: GPUBindGroup;
 } = undefined!;
 
-function toBits(value: number, numBits: number) {
+function uintToBits(value: number, numBits: number) {
   return value.toString(2).padStart(numBits, '0');
 }
+//function unormToBits(value: number, numBits: number) {
+//  return uintToBits(Math.round(value * (2 ** numBits - 1)), numBits);
+//}
 function toBit(value: number | boolean) {
   return value ? '1' : '0';
 }
@@ -203,9 +207,7 @@ const dataFromBits = (() => {
       }
     }
     if (numBits % 8 !== 0) {
-      throw new Error(
-        `expected a multiple of 8 bits, got ${numBits}:\n${bits}`
-      );
+      throw new Error(`expected a multiple of 8 bits, got ${numBits}:\n${bits}`);
     }
     return scratchBytes.slice(0, numBits / 8);
   };
@@ -235,12 +237,7 @@ function update() {
   const bitsString = info.encode(parameters);
   outBlockBits.textContent = bitsString;
   const textureBytes = dataFromBits(bitsString);
-  device.queue.writeTexture(
-    { texture: state.texture },
-    textureBytes,
-    {},
-    info.blockSize
-  );
+  device.queue.writeTexture({ texture: state.texture }, textureBytes, {}, info.blockSize);
 
   const commandEncoder = device.createCommandEncoder();
 
