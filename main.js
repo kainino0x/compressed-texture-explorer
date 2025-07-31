@@ -8031,8 +8031,8 @@ ${uintToBits(p.R1, 4)} ${uintToBits(p.R2, 4)}
 ${uintToBits(p.G1, 4)} ${uintToBits(p.G2, 4)}
 ${uintToBits(p.B1, 4)} ${uintToBits(p.B2, 4)}
  ${uintToBits(p.table1, 3)}  ${uintToBits(p.table2, 3)} 0 ${toBit(p.flipBit)}
-${ponmlkjihgfedcba.map((v) => (kPixelIndexValues[v] >>> 1) & 1).join(' ')}
-${ponmlkjihgfedcba.map((v) => (kPixelIndexValues[v] >>> 0) & 1).join(' ')}`;
+${ponmlkjihgfedcba.map((v) => kPixelIndexValues[v] >> 1).join(' ')}
+${ponmlkjihgfedcba.map((v) => kPixelIndexValues[v] & 1).join(' ')}`;
             }
             return '0000000000000000000000000000000000000000000000000000000000000000'; // TODO
         },
@@ -8080,44 +8080,84 @@ pane
     .addBinding(settings, 'format', {
     options: Object.fromEntries(Object.keys(kCompressedFormatInfo).map((k) => [k, k])),
 })
-    .on('change', updateFolders);
+    .on('change', updateFormatFolders);
 const formatFolders = [];
 {
-    const folder = pane.addFolder({ title: 'rgba8unorm' });
-    formatFolders.push(folder);
+    const f = pane.addFolder({ title: 'rgba8unorm' });
+    formatFolders.push(f);
     // TODO: would be nice to use a color picker here, but the 'format' option doesn't work
-    folder.addBinding(parameters.rgba8unorm, 'r', { min: 0, max: 255, step: 1 });
-    folder.addBinding(parameters.rgba8unorm, 'g', { min: 0, max: 255, step: 1 });
-    folder.addBinding(parameters.rgba8unorm, 'b', { min: 0, max: 255, step: 1 });
-    folder.addBinding(parameters.rgba8unorm, 'a', { min: 0, max: 255, step: 1 });
+    f.addBinding(parameters.rgba8unorm, 'r', { min: 0, max: 255, step: 1 });
+    f.addBinding(parameters.rgba8unorm, 'g', { min: 0, max: 255, step: 1 });
+    f.addBinding(parameters.rgba8unorm, 'b', { min: 0, max: 255, step: 1 });
+    f.addBinding(parameters.rgba8unorm, 'a', { min: 0, max: 255, step: 1 });
 }
 {
-    const folder = pane.addFolder({ title: 'etc2-rgb8unorm' });
-    formatFolders.push(folder);
-    folder.addBinding(parameters['etc2-rgb8unorm'], 'R1', { min: 0, max: 15, step: 1 });
-    folder.addBinding(parameters['etc2-rgb8unorm'], 'G1', { min: 0, max: 15, step: 1 });
-    folder.addBinding(parameters['etc2-rgb8unorm'], 'B1', { min: 0, max: 15, step: 1 });
-    folder.addBinding(parameters['etc2-rgb8unorm'], 'table1', { min: 0, max: 7, step: 1 });
-    folder.addBinding(parameters['etc2-rgb8unorm'], 'R2', { min: 0, max: 15, step: 1 });
-    folder.addBinding(parameters['etc2-rgb8unorm'], 'G2', { min: 0, max: 15, step: 1 });
-    folder.addBinding(parameters['etc2-rgb8unorm'], 'B2', { min: 0, max: 15, step: 1 });
-    folder.addBinding(parameters['etc2-rgb8unorm'], 'table2', { min: 0, max: 7, step: 1 });
-    for (let i = 0; i < 16; ++i) {
-        folder.addBinding(parameters['etc2-rgb8unorm'].abcdefghijklmnop, i, {
-            min: 0,
-            max: 3,
-            step: 1,
-            format: (v) => ['-large', '-small', '+small', '+large'][v],
-            label: String.fromCharCode('a'.charCodeAt(0) + i) + ' mod',
-        });
+    const f = pane.addFolder({ title: 'etc2-rgb8unorm' });
+    formatFolders.push(f);
+    f.addBinding(parameters['etc2-rgb8unorm'], 'mode', {
+        options: {
+            individual: 'individual',
+            differential: 'differential',
+            T: 'T',
+            H: 'H',
+            planar: 'planar',
+        },
+    }).on('change', updateModeFolders);
+    const modeFolders = [];
+    {
+        const f1 = f.addFolder({ title: 'individual' });
+        modeFolders.push(f1);
+        f1.addBinding(parameters['etc2-rgb8unorm'], 'R1', { min: 0, max: 15, step: 1 });
+        f1.addBinding(parameters['etc2-rgb8unorm'], 'G1', { min: 0, max: 15, step: 1 });
+        f1.addBinding(parameters['etc2-rgb8unorm'], 'B1', { min: 0, max: 15, step: 1 });
+        f1.addBinding(parameters['etc2-rgb8unorm'], 'R2', { min: 0, max: 15, step: 1 });
+        f1.addBinding(parameters['etc2-rgb8unorm'], 'G2', { min: 0, max: 15, step: 1 });
+        f1.addBinding(parameters['etc2-rgb8unorm'], 'B2', { min: 0, max: 15, step: 1 });
     }
+    {
+        const f1 = f.addFolder({ title: 'differential' });
+        modeFolders.push(f1);
+    }
+    {
+        const f1 = f.addFolder({ title: 'individual/differential' });
+        modeFolders.push(f1);
+        f1.addBinding(parameters['etc2-rgb8unorm'], 'table1', { min: 0, max: 7, step: 1 });
+        f1.addBinding(parameters['etc2-rgb8unorm'], 'table2', { min: 0, max: 7, step: 1 });
+    }
+    {
+        const f1 = f.addFolder({ title: 'T' });
+        modeFolders.push(f1);
+    }
+    {
+        const f1 = f.addFolder({ title: 'H' });
+        modeFolders.push(f1);
+    }
+    {
+        const f1 = f.addFolder({ title: 'individual/differential/T/H' });
+        modeFolders.push(f1);
+        for (let i = 0; i < 16; ++i) {
+            f1.addBinding(parameters['etc2-rgb8unorm'].abcdefghijklmnop, i, {
+                min: 0,
+                max: 3,
+                step: 1,
+                format: (v) => ['-large', '-small', '+small', '+large'][v],
+                label: String.fromCharCode('a'.charCodeAt(0) + i) + ' mod',
+            });
+        }
+    }
+    function updateModeFolders() {
+        for (const folder of modeFolders) {
+            folder.hidden = !(folder.title && folder.title.split('/').includes(parameters['etc2-rgb8unorm'].mode));
+        }
+    }
+    updateModeFolders();
 }
-function updateFolders() {
+function updateFormatFolders() {
     for (const folder of formatFolders) {
         folder.hidden = folder.title !== settings.format;
     }
 }
-updateFolders();
+updateFormatFolders();
 let state = undefined;
 function uintToBits(value, numBits) {
     return value.toString(2).padStart(numBits, '0');
